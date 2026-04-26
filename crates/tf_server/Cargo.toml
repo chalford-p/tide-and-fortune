@@ -1,0 +1,9 @@
+[package]
+name = "tf_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tf_core = { path = "../tf_core" }
+tf_simulation = { path = "../tf_simulation" }
+tf_net = { path = "../tf_net" }

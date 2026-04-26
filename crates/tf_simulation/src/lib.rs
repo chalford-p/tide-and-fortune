@@ -1,0 +1,1 @@
+//! Crate: tf_simulation — Game simulation logic and ECS systems.

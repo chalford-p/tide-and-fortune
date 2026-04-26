@@ -1,0 +1,11 @@
+[package]
+name = "tf_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tf_core = { path = "../tf_core" }
+tf_simulation = { path = "../tf_simulation" }
+tf_render = { path = "../tf_render" }
+tf_ui = { path = "../tf_ui" }
+tf_net = { path = "../tf_net" }

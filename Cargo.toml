@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "crates/tf_core",
+    "crates/tf_simulation",
+    "crates/tf_render",
+    "crates/tf_ui",
+    "crates/tf_net",
+    "crates/tf_client",
+    "crates/tf_server"
+]
+default-members = ["crates/tf_client"]
+resolver = "2"
