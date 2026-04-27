@@ -80,6 +80,10 @@ fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
                 let world_y = config.world_min.y + y as f32 * config.tile_size + config.tile_size * 0.5;
                 let phase = ((x + y) as f32 * 0.37).fract();
 
+                // Project to isometric coordinates for better visual alignment
+                let iso_x = world_x - world_y * 0.5;
+                let iso_y = world_x + world_y * 0.5;
+
                 parent.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -87,7 +91,7 @@ fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
                             custom_size: Some(Vec2::splat(config.tile_size - 2.0)),
                             ..default()
                         },
-                        transform: Transform::from_xyz(world_x, world_y, 0.0),
+                        transform: Transform::from_xyz(iso_x, iso_y, 0.0),
                         ..default()
                     },
                     OceanTile { phase },
@@ -129,8 +133,12 @@ fn attach_player_ship_to_isometric_root(
     };
 
     for (entity, mut sprite) in &mut ship_q {
+        // Set the ship's local transform to z=10 to ensure it's above ocean tiles
         commands.entity(root).add_child(entity);
         commands.entity(entity).insert((YSort, ShipRotationFrame::default()));
+        // Set z-order high
+        let mut transform = Transform::from_xyz(0.0, 0.0, 10.0);
+        commands.entity(entity).insert(transform);
 
         sprite.color = Color::srgb(0.95, 0.72, 0.19);
         sprite.custom_size = Some(Vec2::new(54.0, 30.0));

@@ -132,8 +132,9 @@ fn anchor_hud_to_camera(
         return;
     };
 
-    hud_tf.translation.x = camera_tf.translation.x - 420.0;
-    hud_tf.translation.y = camera_tf.translation.y + 230.0;
+    // Tweak offsets for better alignment (move closer to top left, less extreme)
+    hud_tf.translation.x = camera_tf.translation.x - 350.0;
+    hud_tf.translation.y = camera_tf.translation.y + 180.0;
 }
 
 fn update_wind_hud(
