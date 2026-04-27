@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 tf_core = { path = "../tf_core" }
+tf_simulation = { path = "../tf_simulation" }
+bevy = { version = "0.15", features = ["dynamic_linking"] }
+glam = "0.30"
