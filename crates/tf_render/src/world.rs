@@ -80,20 +80,13 @@ fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
                 let world_y = config.world_min.y + y as f32 * config.tile_size + config.tile_size * 0.5;
                 let phase = ((x + y) as f32 * 0.37).fract();
 
-                // Project to isometric coordinates for better visual alignment
-                let iso_x = world_x - world_y * 0.5;
-                let iso_y = world_x + world_y * 0.5;
-
                 parent.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: Color::srgb(0.11, 0.38, 0.70),
-                            custom_size: Some(Vec2::splat(config.tile_size - 2.0)),
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(iso_x, iso_y, 0.0),
+                    Sprite {
+                        color: Color::srgb(0.11, 0.38, 0.70),
+                        custom_size: Some(Vec2::splat(config.tile_size)),
                         ..default()
-                    },
+                        },
+                    Transform::from_xyz(world_x, world_y, 0.0),
                     OceanTile { phase },
                     YSort,
                 ));
@@ -101,15 +94,12 @@ fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
         }
 
         parent.spawn((
-            SpriteBundle {
-                sprite: Sprite {
+            Sprite {
                     color: Color::srgb(0.23, 0.50, 0.22),
                     custom_size: Some(Vec2::new(620.0, 500.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(6_400.0, 3_100.0, 0.0),
-                ..default()
-            },
+            Transform::from_xyz(6_400.0, 3_100.0, 0.0),
             YSort,
         ));
     });

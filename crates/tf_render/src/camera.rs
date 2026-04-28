@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use glam::Vec2 as CoreVec2;
+use glam::Vec2;
 use tf_simulation::ship::{PlayerShip, ShipVelocity};
 
 /// Marker for the main isometric camera.
@@ -11,8 +11,8 @@ pub struct IsometricCamera;
 pub struct CameraFollowConfig {
     pub lookahead_seconds: f32,
     pub smoothing: f32,
-    pub world_min: CoreVec2,
-    pub world_max: CoreVec2,
+    pub world_min: Vec2,
+    pub world_max: Vec2,
     pub zoom_scale: f32,
 }
 
@@ -21,17 +21,17 @@ impl Default for CameraFollowConfig {
         Self {
             lookahead_seconds: 0.45,
             smoothing: 8.0,
-            world_min: CoreVec2::ZERO,
-            world_max: CoreVec2::splat(10_000.0),
+            world_min: Vec2::ZERO,
+            world_max: Vec2::splat(10_000.0),
             zoom_scale: 0.8,
         }
     }
 }
 
 /// Converts simulation world space into 2:1 isometric screen space.
-pub fn world_to_isometric(world: CoreVec2) -> CoreVec2 {
+pub fn world_to_isometric(world: Vec2) -> Vec2 {
     // Keep this projection in sync with `world::setup_world` root transform.
-    CoreVec2::new(world.x - world.y * 0.5, world.x + world.y * 0.5)
+    Vec2::new(world.x - world.y * 0.5, world.x + world.y * 0.5)
 }
 
 pub struct CameraPlugin;
@@ -78,24 +78,22 @@ fn follow_player_ship(
     };
 
     let world_pos = Vec2::new(player_tf.translation.x, player_tf.translation.y);
-    let world_pos = CoreVec2::new(world_pos.x, world_pos.y);
     let lookahead = player_velocity
         .map(|velocity| velocity.linvel * config.lookahead_seconds)
-        .unwrap_or(CoreVec2::ZERO);
+        .unwrap_or(Vec2::ZERO);
 
     let world_target = clamp_world(world_pos + lookahead, config.world_min, config.world_max);
     let iso_target = world_to_isometric(world_target);
-    let iso_target_bevy = Vec2::new(iso_target.x, iso_target.y);
 
     let blend = 1.0 - (-config.smoothing * time.delta_secs()).exp();
     let blended_xy =
-        Vec2::new(camera_tf.translation.x, camera_tf.translation.y).lerp(iso_target_bevy, blend);
+        Vec2::new(camera_tf.translation.x, camera_tf.translation.y).lerp(iso_target, blend);
 
     camera_tf.translation.x = blended_xy.x;
     camera_tf.translation.y = blended_xy.y;
 }
 
-fn clamp_world(position: CoreVec2, min: CoreVec2, max: CoreVec2) -> CoreVec2 {
+fn clamp_world(position: Vec2, min: Vec2, max: Vec2) -> Vec2 {
     position.clamp(min, max)
 }
 
@@ -103,24 +101,24 @@ fn clamp_world(position: CoreVec2, min: CoreVec2, max: CoreVec2) -> CoreVec2 {
 mod tests {
     use super::*;
 
-    fn approx_eq(left: CoreVec2, right: CoreVec2) {
+    fn approx_eq(left: Vec2, right: Vec2) {
         assert!((left.x - right.x).abs() < 1e-5);
         assert!((left.y - right.y).abs() < 1e-5);
     }
 
     #[test]
     fn converts_world_to_2_to_1_isometric() {
-        let iso = world_to_isometric(CoreVec2::new(10.0, 4.0));
-        approx_eq(iso, CoreVec2::new(8.0, 12.0));
+        let iso = world_to_isometric(Vec2::new(10.0, 4.0));
+        approx_eq(iso, Vec2::new(8.0, 12.0));
     }
 
     #[test]
     fn clamps_world_targets_to_bounds() {
         let clamped = clamp_world(
-            CoreVec2::new(12_000.0, -100.0),
-            CoreVec2::ZERO,
-            CoreVec2::splat(10_000.0),
+            Vec2::new(12_000.0, -100.0),
+            Vec2::ZERO,
+            Vec2::splat(10_000.0),
         );
-        approx_eq(clamped, CoreVec2::new(10_000.0, 0.0));
+        approx_eq(clamped, Vec2::new(10_000.0, 0.0));
     }
 }
