@@ -2,6 +2,9 @@ use bevy::prelude::*;
 use tf_simulation::ship::PlayerShip;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
+pub struct IsometricRotationRoot;
+
+#[derive(Component, Debug, Clone, Copy, Default)]
 pub struct IsometricRoot;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
@@ -54,26 +57,28 @@ impl Plugin for WorldPlugin {
 }
 
 fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
-    let root = commands
+    let world_root = commands
         .spawn((
-            SpatialBundle {
-                transform: Transform {
-                    translation: Vec3::ZERO,
-                    rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
-                    scale: Vec3::new(std::f32::consts::SQRT_2, std::f32::consts::SQRT_2 * 0.5, 1.0),
-                },
-                ..default()
-            },
+            // Transform::from_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_4)),
+            Transform::default(),
+            Visibility::default(),
             IsometricRoot,
         ))
         .id();
+
+    // let isometric_root = commands.entity(world_root).with_child((
+    //     // Transform::from_scale(Vec3::new(std::f32::consts::SQRT_2, std::f32::consts::SQRT_2 * 0.5, 1.0)),
+    //     Visibility::default(),
+    //     IsometricRoot,
+    // ))
+    // .id();
 
     let width = config.world_max.x - config.world_min.x;
     let height = config.world_max.y - config.world_min.y;
     let cols = (width / config.tile_size).ceil() as i32;
     let rows = (height / config.tile_size).ceil() as i32;
 
-    commands.entity(root).with_children(|parent| {
+    commands.entity(world_root).with_children(|parent| {
         for y in 0..rows {
             for x in 0..cols {
                 let world_x = config.world_min.x + x as f32 * config.tile_size + config.tile_size * 0.5;

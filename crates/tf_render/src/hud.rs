@@ -1,9 +1,12 @@
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use glam::Vec2 as CoreVec2;
 use tf_core::sailing::points_of_sail::PointOfSail;
 use tf_core::sailing::wind::Beaufort;
 use tf_simulation::ship::{PlayerShip, ShipVelocity};
 use tf_simulation::WindFieldResource;
+
+use crate::camera::{HUD_RENDER_LAYER, IsometricCamera};
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 struct HudRoot;
@@ -43,20 +46,24 @@ fn setup_hud(mut commands: Commands) {
                 transform: Transform::from_xyz(-420.0, 230.0, 2_000.0),
                 ..default()
             },
+            RenderLayers::layer(HUD_RENDER_LAYER),
             HudRoot,
         ))
         .id();
 
     commands.entity(root).with_children(|parent| {
-        parent.spawn(SpriteBundle {
-            sprite: Sprite {
-                color: Color::srgba(0.03, 0.06, 0.11, 0.82),
-                custom_size: Some(Vec2::new(280.0, 140.0)),
+        parent.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgba(0.03, 0.06, 0.11, 0.82),
+                    custom_size: Some(Vec2::new(280.0, 140.0)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        });
+            RenderLayers::layer(HUD_RENDER_LAYER),
+        ));
 
         parent.spawn((
             SpriteBundle {
@@ -68,6 +75,7 @@ fn setup_hud(mut commands: Commands) {
                 transform: Transform::from_xyz(-82.0, 12.0, 1.0),
                 ..default()
             },
+            RenderLayers::layer(HUD_RENDER_LAYER),
             WindNeedle,
         ));
 
@@ -82,6 +90,7 @@ fn setup_hud(mut commands: Commands) {
                     transform: Transform::from_xyz(-40.0 + f32::from(index) * 12.0, -48.0, 1.0),
                     ..default()
                 },
+                RenderLayers::layer(HUD_RENDER_LAYER),
                 BeaufortBar { level: index },
             ));
         }
@@ -115,13 +124,14 @@ fn spawn_point_of_sail_arc(parent: &mut ChildBuilder) {
                 transform: Transform::from_xyz(x, y, 1.0),
                 ..default()
             },
+            RenderLayers::layer(HUD_RENDER_LAYER),
             PointOfSailSegment { zone },
         ));
     }
 }
 
 fn anchor_hud_to_camera(
-    camera_q: Query<&Transform, (With<Camera>, Without<HudRoot>)>,
+    camera_q: Query<&Transform, (With<IsometricCamera>, Without<HudRoot>)>,
     mut hud_q: Query<&mut Transform, (With<HudRoot>, Without<Camera>)>,
 ) {
     let Ok(camera_tf) = camera_q.get_single() else {

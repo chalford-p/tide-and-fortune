@@ -1,10 +1,18 @@
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use glam::Vec2;
 use tf_simulation::ship::{PlayerShip, ShipVelocity};
+
+pub const WORLD_RENDER_LAYER: usize = 0;
+pub const HUD_RENDER_LAYER: usize = 1;
 
 /// Marker for the main isometric camera.
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct IsometricCamera;
+
+/// Marker for the HUD camera (not affected by isometric projection).
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct HudCamera;
 
 /// Camera tuning values for follow behavior and world clamping.
 #[derive(Resource, Debug, Clone, Copy)]
@@ -39,7 +47,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraFollowConfig>()
-            .add_systems(Startup, spawn_isometric_camera)
+            .add_systems(Startup, (spawn_isometric_camera, spawn_hud_camera))
             .add_systems(Update, follow_player_ship);
     }
 }
@@ -54,12 +62,37 @@ fn spawn_isometric_camera(mut commands: Commands, config: Res<CameraFollowConfig
     projection.far = 2_000.0;
 
     commands.spawn((
-        Camera2dBundle {
-            projection,
-            transform: Transform::from_xyz(iso_center.x, iso_center.y, 999.0),
+        Camera2d,
+        Camera {
+            order: 0,
             ..default()
         },
+        RenderLayers::layer(WORLD_RENDER_LAYER),
+        projection,
+        Transform::from_xyz(iso_center.x, iso_center.y, 999.0)
+            .with_rotation(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_4))
+            .with_scale(Vec3::new(std::f32::consts::SQRT_2 * 0.5, std::f32::consts::SQRT_2, 1.0)),
         IsometricCamera,
+    ));
+}
+
+fn spawn_hud_camera(mut commands: Commands) {
+    let mut projection = OrthographicProjection::default_2d();
+    projection.scale = 1.0;
+    projection.near = -2_000.0;
+    projection.far = 2_000.0;
+
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1,
+            clear_color: bevy::render::camera::ClearColorConfig::None,
+            ..default()
+        },
+        RenderLayers::layer(HUD_RENDER_LAYER),
+        projection,
+        Transform::from_xyz(0.0, 0.0, 1000.0),
+        HudCamera,
     ));
 }
 
