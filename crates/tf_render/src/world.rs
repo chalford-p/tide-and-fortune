@@ -132,7 +132,7 @@ fn attach_player_ship_to_isometric_root(
         commands.entity(root).add_child(entity);
         commands.entity(entity).insert((YSort, ShipRotationFrame::default()));
         // Set z-order high
-        let mut transform = Transform::from_xyz(0.0, 0.0, 10.0);
+        let transform = Transform::from_xyz(0.0, 0.0, 10.0);
         commands.entity(entity).insert(transform);
 
         sprite.color = Color::srgb(0.95, 0.72, 0.19);
@@ -157,17 +157,18 @@ fn y_sort_world_entities(mut renderables: Query<&mut Transform, (With<YSort>, Wi
 }
 
 fn update_ship_sprite_frame(
-    mut ships: Query<(&mut Transform, &mut ShipRotationFrame), With<PlayerShip>>,
+    mut ships: Query<(&Transform, &mut ShipRotationFrame), With<PlayerShip>>,
 ) {
-    for (mut transform, mut frame) in &mut ships {
+    for (transform, mut frame) in &mut ships {
         let (_, _, heading) = transform.rotation.to_euler(EulerRot::XYZ);
-        let wrapped = heading.rem_euclid(std::f32::consts::TAU);
-        let frame_index = ((wrapped / std::f32::consts::TAU) * 16.0).round() as i32 % 16;
-        frame.index = frame_index as u8;
-
-        let snapped_heading = (f32::from(frame.index) / 16.0) * std::f32::consts::TAU;
-        transform.rotation = Quat::from_rotation_z(snapped_heading);
+        frame.index = heading_to_frame_index(heading);
     }
+}
+
+fn heading_to_frame_index(heading: f32) -> u8 {
+    let wrapped = heading.rem_euclid(std::f32::consts::TAU);
+    let frame_index = ((wrapped / std::f32::consts::TAU) * 16.0).round() as i32 % 16;
+    frame_index as u8
 }
 
 #[cfg(test)]
@@ -176,8 +177,12 @@ mod tests {
 
     #[test]
     fn frame_index_stays_in_16_frame_range() {
-        let heading = std::f32::consts::TAU * 0.95;
-        let frame_index = ((heading / std::f32::consts::TAU) * 16.0).round() as i32 % 16;
-        assert!((0..16).contains(&frame_index));
+        let frame_index = heading_to_frame_index(std::f32::consts::TAU * 0.95);
+        assert!((0..16).contains(&i32::from(frame_index)));
+    }
+
+    #[test]
+    fn frame_index_wraps_negative_headings() {
+        assert_eq!(heading_to_frame_index(-std::f32::consts::FRAC_PI_2), 12);
     }
 }

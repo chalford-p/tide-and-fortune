@@ -1,6 +1,7 @@
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{Event, EventWriter};
 use bevy_ecs::prelude::{Query, Res, With};
+use bevy_log::error_once;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::ButtonInput;
 
@@ -44,7 +45,7 @@ pub fn player_input_system(
     let direction_bearing = direction_to_bearing(x, y);
     let fine_adjust = keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
 
-    for (entity, mut helm) in &mut ships {
+    if let Ok((entity, mut helm)) = ships.get_single_mut() {
         let next_heading = if fine_adjust {
             let delta = shortest_delta(helm.target_heading, direction_bearing);
             let step = delta.clamp(-FINE_ADJUST_STEP, FINE_ADJUST_STEP);
@@ -54,7 +55,7 @@ pub fn player_input_system(
         };
 
         if (next_heading - helm.target_heading).abs() <= f32::EPSILON {
-            continue;
+            return;
         }
 
         helm.target_heading = next_heading;
@@ -62,6 +63,8 @@ pub fn player_input_system(
             entity,
             target_heading: next_heading,
         });
+    } else {
+        error_once!("Player input system found {} PlayerShip entities; expected exactly 1", ships.iter().count());
     }
 }
 
@@ -76,7 +79,9 @@ fn axis_positive(
 }
 
 fn direction_to_bearing(x: i8, y: i8) -> f32 {
-    let raw = (x as f32).atan2(y as f32);
+    // Negate x so that D (positive x) maps to a clockwise / East heading in
+    // Bevy's CCW-positive rotation space. Without this, D and A are swapped.
+    let raw = (-(x as f32)).atan2(y as f32);
     normalize_bearing(raw)
 }
 
@@ -142,7 +147,9 @@ mod tests {
 
         let mut query = world.query::<&Helm>();
         let helm = query.single(&world);
-        approx_eq(helm.target_heading, std::f32::consts::FRAC_PI_2);
+        // D = East = 270° CCW (3π/2) in Bevy's CCW-positive rotation space
+        // (sprite faces +Y; rotating 90° CW points it to +X = East).
+        approx_eq(helm.target_heading, std::f32::consts::TAU - std::f32::consts::FRAC_PI_2);
 
         world
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -171,7 +178,8 @@ mod tests {
 
         let mut query = world.query::<&Helm>();
         let helm = query.single(&world);
-        approx_eq(helm.target_heading, std::f32::consts::TAU * 7.0 / 8.0);
+        // W+A = NW, which is π/4 (45° CCW from North=0 toward West=π/2).
+        approx_eq(helm.target_heading, std::f32::consts::FRAC_PI_4);
     }
 
     #[test]
@@ -205,7 +213,9 @@ mod tests {
 
         let mut query = world.query::<&Helm>();
         let helm = query.single(&world);
-        approx_eq(helm.target_heading, FINE_ADJUST_STEP);
+        // Shift+D steps toward East (3π/2), so from heading 0 the step is
+        // clockwise (negative), yielding TAU - FINE_ADJUST_STEP after normalisation.
+        approx_eq(helm.target_heading, normalize_bearing(-FINE_ADJUST_STEP));
     }
 
     #[test]

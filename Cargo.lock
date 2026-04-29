@@ -4083,6 +4083,7 @@ version = "0.1.0"
 dependencies = [
  "bevy_ecs",
  "bevy_input",
+ "bevy_log",
  "bevy_math",
  "bevy_sprite",
  "bevy_time",
