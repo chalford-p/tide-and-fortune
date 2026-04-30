@@ -40,12 +40,11 @@ impl Plugin for HudPlugin {
 }
 
 fn setup_hud(mut commands: Commands) {
+
     let root = commands
         .spawn((
-            SpatialBundle {
-                transform: Transform::from_xyz(-420.0, 230.0, 2_000.0),
-                ..default()
-            },
+            Transform::from_xyz(-420.0, 230.0, 2_000.0),
+            Visibility::default(),
             RenderLayers::layer(HUD_RENDER_LAYER),
             HudRoot,
         ))
@@ -53,43 +52,37 @@ fn setup_hud(mut commands: Commands) {
 
     commands.entity(root).with_children(|parent| {
         parent.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::srgba(0.03, 0.06, 0.11, 0.82),
-                    custom_size: Some(Vec2::new(280.0, 140.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            Sprite {
+                color: Color::srgba(0.03, 0.06, 0.11, 0.82),
+                custom_size: Some(Vec2::new(280.0, 140.0)),
                 ..default()
             },
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            Visibility::default(),
             RenderLayers::layer(HUD_RENDER_LAYER),
         ));
 
         parent.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::srgb(0.85, 0.87, 0.90),
-                    custom_size: Some(Vec2::new(8.0, 62.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(-82.0, 12.0, 1.0),
+            Sprite {
+                color: Color::srgb(0.85, 0.87, 0.90),
+                custom_size: Some(Vec2::new(8.0, 62.0)),
                 ..default()
             },
+            Transform::from_xyz(-82.0, 12.0, 1.0),
+            Visibility::default(),
             RenderLayers::layer(HUD_RENDER_LAYER),
             WindNeedle,
         ));
 
         for index in 0..13_u8 {
             parent.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::srgb(0.22, 0.25, 0.29),
-                        custom_size: Some(Vec2::new(8.0, 10.0)),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(-40.0 + f32::from(index) * 12.0, -48.0, 1.0),
+                Sprite {
+                    color: Color::srgb(0.22, 0.25, 0.29),
+                    custom_size: Some(Vec2::new(8.0, 10.0)),
                     ..default()
                 },
+                Transform::from_xyz(-40.0 + f32::from(index) * 12.0, -48.0, 1.0),
+                Visibility::default(),
                 RenderLayers::layer(HUD_RENDER_LAYER),
                 BeaufortBar { level: index },
             ));
@@ -115,15 +108,13 @@ fn spawn_point_of_sail_arc(parent: &mut ChildBuilder) {
         let y = 2.0 + angle.sin() * 34.0;
 
         parent.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: zone_color(zone).with_alpha(0.25),
-                    custom_size: Some(Vec2::new(15.0, 15.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(x, y, 1.0),
+            Sprite {
+                color: zone_color(zone).with_alpha(0.25),
+                custom_size: Some(Vec2::new(15.0, 15.0)),
                 ..default()
             },
+            Transform::from_xyz(x, y, 1.0),
+            Visibility::default(),
             RenderLayers::layer(HUD_RENDER_LAYER),
             PointOfSailSegment { zone },
         ));
