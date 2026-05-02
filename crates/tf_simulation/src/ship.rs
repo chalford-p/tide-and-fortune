@@ -71,8 +71,23 @@ pub struct Ship {
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Helm {
-    pub target_heading: f32,
     pub rudder_angle: f32,
+}
+
+/// Describes the physical rudder fitted to a ship. The `max_angle` (in radians)
+/// determines how sharply the ship can turn. Different rudder upgrades will
+/// expose a larger `max_angle`.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Rudder {
+    pub max_angle: f32,
+}
+
+impl Default for Rudder {
+    fn default() -> Self {
+        Self {
+            max_angle: std::f32::consts::FRAC_PI_4,
+        }
+    }
 }
 
 #[derive(Component, Debug, Clone)]
@@ -105,6 +120,7 @@ pub struct PlayerShip;
 pub struct ShipBundle {
     pub ship: Ship,
     pub helm: Helm,
+    pub rudder: Rudder,
     pub sail_state: SailState,
     pub velocity: ShipVelocity,
     pub player_ship: PlayerShip,
@@ -121,9 +137,9 @@ impl Default for ShipBundle {
                 sail_plan: SailPlan::ForeAndAft,
             },
             helm: Helm {
-                target_heading: 0.0,
                 rudder_angle: 0.0,
             },
+            rudder: Rudder::default(),
             sail_state: SailState::with_all_sails(SailAssistTier::Tier1),
             velocity: ShipVelocity::default(),
             player_ship: PlayerShip,

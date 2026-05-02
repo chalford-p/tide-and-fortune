@@ -8,7 +8,9 @@ use tf_core::sailing::points_of_sail::PointOfSail;
 use crate::ship::{Helm, SailAssistTier, SailState, Ship, ShipVelocity};
 use crate::{GameMode, WindFieldResource};
 
-const RUDDER_RESPONSE_RATE: f32 = 2.8;
+/// Scale factor mapping (rudder_angle / displacement_tonnes) → angular_velocity (rad/s).
+/// Chosen so that a Sloop (120 t) at max rudder (π/4 rad) reaches ~0.65 rad/s.
+const TURN_RATE_SCALE: f32 = 99.3;
 const MAX_TURN_RATE_RAD_PER_SEC: f32 = 0.65;
 const HEADING_SNAP_RAD: f32 = 30.0_f32.to_radians();
 const GYBE_SPEED_PENALTY: f32 = 0.60;
@@ -59,24 +61,25 @@ pub fn sailing_physics_system(
         let drive_accel = ship_forward * (drive_force / ship.displacement_tonnes.max(1.0));
         velocity.linvel += (drive_accel + leeway_accel) * dt;
 
-        let heading_delta = wrap_angle(helm.target_heading - heading);
-        helm.rudder_angle = (heading_delta / std::f32::consts::FRAC_PI_2).clamp(-1.0, 1.0);
-
-        let turn_step = (helm.rudder_angle * RUDDER_RESPONSE_RATE * dt)
-            .clamp(-MAX_TURN_RATE_RAD_PER_SEC * dt, MAX_TURN_RATE_RAD_PER_SEC * dt);
+        // Turn rate is proportional to rudder angle and inversely proportional to mass.
+        let angular_velocity = helm.rudder_angle * TURN_RATE_SCALE
+            / ship.displacement_tonnes.max(1.0);
+        let turn_step = angular_velocity
+            .clamp(-MAX_TURN_RATE_RAD_PER_SEC, MAX_TURN_RATE_RAD_PER_SEC)
+            * dt;
 
         let mut new_heading = heading + turn_step;
+        let heading_delta = turn_step; // direction of current turn
         let turning_toward_wind = is_turning_toward_wind(heading, heading_delta, apparent_wind);
 
         if sail_state.tier == SailAssistTier::Tier1
             && point_of_sail.gybe_risk(turning_toward_wind)
             && helm.rudder_angle.abs() > 0.1
         {
-            let snap_sign = heading_delta.signum();
+            let snap_sign = turn_step.signum();
             if snap_sign != 0.0 {
                 new_heading += snap_sign * HEADING_SNAP_RAD;
                 velocity.linvel *= GYBE_SPEED_PENALTY;
-                helm.target_heading = new_heading;
             }
         }
 

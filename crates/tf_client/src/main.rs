@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use tf_core::sailing::wind::{WindField, WindFieldConfig};
 use tf_render::TideAndFortuneRenderPlugin;
-use tf_simulation::ship::{Helm, ShipBundle};
-use tf_simulation::systems::player_input::{player_input_system, HeadingChanged};
+use tf_simulation::ship::ShipBundle;
+use tf_simulation::systems::player_input::player_input_system;
 use tf_simulation::systems::sailing_physics::sailing_physics_system;
 use tf_simulation::{GameMode, WindFieldResource};
 
@@ -27,7 +27,6 @@ fn main() {
 			max_speed: 14.0,
 			gust_strength: 0.25,
 		})))
-		.add_event::<HeadingChanged>()
 		.add_plugins(TideAndFortuneRenderPlugin)
 		.add_systems(Startup, spawn_player_ship)
 		.add_systems(
@@ -44,11 +43,6 @@ fn main() {
 fn spawn_player_ship(mut commands: Commands) {
 	let mut ship = ShipBundle::default();
 	ship.transform.translation = Vec3::new(5_000.0, 5_000.0, 0.0);
-	ship.helm = Helm {
-		target_heading: 0.0,
-		rudder_angle: 0.0,
-	};
-
 	commands.spawn(ship);
 }
 
