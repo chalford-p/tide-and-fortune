@@ -15,12 +15,14 @@ const MAX_TURN_RATE_RAD_PER_SEC: f32 = 0.65;
 const HEADING_SNAP_RAD: f32 = 30.0_f32.to_radians();
 const GYBE_SPEED_PENALTY: f32 = 0.60;
 const LEEWAY_COEFFICIENT: f32 = 0.16;
+// Tuned to world-space units so propulsion is visibly responsive in-game.
+const DRIVE_FORCE_SCALE: f32 = 2.4;
 
 pub fn sailing_physics_system(
     time: Res<Time>,
     mode: Res<GameMode>,
     wind_field: Res<WindFieldResource>,
-    mut ships: Query<(&Ship, &mut Helm, &SailState, &mut ShipVelocity, &mut Transform)>,
+    mut ships: Query<(&Ship, &Helm, &SailState, &mut ShipVelocity, &mut Transform)>,
 ) {
     if *mode != GameMode::Sailing {
         return;
@@ -31,7 +33,7 @@ pub fn sailing_physics_system(
         return;
     }
 
-    for (ship, mut helm, sail_state, mut velocity, mut transform) in &mut ships {
+    for (ship, helm, sail_state, mut velocity, mut transform) in &mut ships {
         let heading = transform.rotation.to_euler(EulerRot::XYZ).2;
         let ship_forward_bevy = transform.rotation * Vec3::X;
         let mut ship_forward = Vec2::new(ship_forward_bevy.x, ship_forward_bevy.y);
@@ -51,11 +53,15 @@ pub fn sailing_physics_system(
             continue;
         }
 
-        let (point_of_sail, _) = PointOfSail::from_vectors(apparent_wind, ship_forward);
+        // `PointOfSail` and related sailing logic are defined against wind-from.
+        // The apparent wind vector above is wind-to, so flip it for sailing math.
+        let apparent_wind_from = -apparent_wind;
+
+        let (point_of_sail, _) = PointOfSail::from_vectors(apparent_wind_from, ship_forward);
         let trim_efficiency = tier_trim_efficiency(sail_state, point_of_sail);
 
-        let drive_force = compute_drive_force(ship, apparent_wind, ship_forward, trim_efficiency, point_of_sail);
-        let leeway_accel = compute_leeway_accel(ship, apparent_wind, ship_forward);
+        let drive_force = compute_drive_force(ship, apparent_wind_from, ship_forward, trim_efficiency, point_of_sail);
+        let leeway_accel = compute_leeway_accel(ship, apparent_wind_from, ship_forward);
 
         // Integrate velocity with simple Euler integration.
         let drive_accel = ship_forward * (drive_force / ship.displacement_tonnes.max(1.0));
@@ -70,7 +76,7 @@ pub fn sailing_physics_system(
 
         let mut new_heading = heading + turn_step;
         let heading_delta = turn_step; // direction of current turn
-        let turning_toward_wind = is_turning_toward_wind(heading, heading_delta, apparent_wind);
+        let turning_toward_wind = is_turning_toward_wind(heading, heading_delta, apparent_wind_from);
 
         if sail_state.tier == SailAssistTier::Tier1
             && point_of_sail.gybe_risk(turning_toward_wind)
@@ -115,7 +121,7 @@ fn compute_drive_force(
     let cosine_drive = (1.0 - alignment * 0.5).clamp(0.25, 1.0);
     let hull_factor = ship.ship_type.base_drive_coefficient();
 
-    wind_speed * wind_speed * trim_efficiency * cosine_drive * hull_factor * 0.09
+    wind_speed * wind_speed * trim_efficiency * cosine_drive * hull_factor * DRIVE_FORCE_SCALE
 }
 
 fn compute_leeway_accel(ship: &Ship, apparent_wind: Vec2, ship_forward: Vec2) -> Vec2 {
@@ -185,5 +191,38 @@ mod tests {
         let wrapped = wrap_angle(4.5);
         assert!(wrapped <= std::f32::consts::PI);
         assert!(wrapped >= -std::f32::consts::PI);
+    }
+
+    #[test]
+    fn wind_to_is_flipped_for_point_of_sail() {
+        // Ship heading +X with true/app wind blowing toward +X (from astern).
+        // This should classify as Running once converted to wind-from.
+        let ship_forward = Vec2::X;
+        let apparent_wind = Vec2::X;
+        let apparent_wind_from = -apparent_wind;
+
+        let (point, _) = PointOfSail::from_vectors(apparent_wind_from, ship_forward);
+        assert_eq!(point, PointOfSail::Running);
+    }
+
+    #[test]
+    fn drive_force_is_non_trivial_on_beam_reach() {
+        let ship = Ship {
+            ship_type: ShipType::Sloop,
+            displacement_tonnes: 120.0,
+            sail_plan: SailPlan::ForeAndAft,
+        };
+
+        // 8 m/s apparent wind from port side => beam reach with +X forward.
+        let force = compute_drive_force(
+            &ship,
+            Vec2::new(0.0, 8.0),
+            Vec2::new(1.0, 0.0),
+            PointOfSail::BeamReach.auto_trim_efficiency(),
+            PointOfSail::BeamReach,
+        );
+
+        // Ensure propulsion is strong enough to produce visible acceleration in world units.
+        assert!(force > 100.0);
     }
 }
