@@ -10,7 +10,7 @@ pub const HUD_RENDER_LAYER: usize = 1;
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct IsometricCamera;
 
-/// Marker for the HUD camera (not affected by isometric projection).
+/// Marker for the HUD camera (renders in screen-space).
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct HudCamera;
 
@@ -36,25 +36,18 @@ impl Default for CameraFollowConfig {
     }
 }
 
-/// Converts simulation world space into 2:1 isometric screen space.
-pub fn world_to_isometric(world: Vec2) -> Vec2 {
-    // Keep this projection in sync with `world::setup_world` root transform.
-    Vec2::new(world.x - world.y * 0.5, world.x + world.y * 0.5)
-}
-
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraFollowConfig>()
             .add_systems(Startup, (spawn_isometric_camera, spawn_hud_camera))
-            .add_systems(Update, follow_player_ship);
+            .add_systems(PostUpdate, follow_player_ship.after(TransformSystem::TransformPropagate));
     }
 }
 
 fn spawn_isometric_camera(mut commands: Commands, config: Res<CameraFollowConfig>) {
     let world_center = (config.world_min + config.world_max) * 0.5;
-    let iso_center = world_to_isometric(world_center);
 
     let mut projection = OrthographicProjection::default_2d();
     projection.scale = config.zoom_scale;
@@ -69,7 +62,7 @@ fn spawn_isometric_camera(mut commands: Commands, config: Res<CameraFollowConfig
         },
         RenderLayers::layer(WORLD_RENDER_LAYER),
         projection,
-        Transform::from_xyz(iso_center.x, iso_center.y, 999.0)
+        Transform::from_xyz(world_center.x, world_center.y, 999.0)
             .with_rotation(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_4))
             .with_scale(Vec3::new(std::f32::consts::SQRT_2 * 0.5, std::f32::consts::SQRT_2, 1.0)),
         IsometricCamera,
@@ -82,6 +75,7 @@ fn spawn_hud_camera(mut commands: Commands) {
     projection.near = -2_000.0;
     projection.far = 2_000.0;
 
+    // HUD camera is fixed in screen-space
     commands.spawn((
         Camera2d,
         Camera {
@@ -99,10 +93,10 @@ fn spawn_hud_camera(mut commands: Commands) {
 fn follow_player_ship(
     time: Res<Time>,
     config: Res<CameraFollowConfig>,
-    player_q: Query<(&Transform, Option<&ShipVelocity>), With<PlayerShip>>,
+    player_q: Query<(&GlobalTransform, Option<&ShipVelocity>), With<PlayerShip>>,
     mut camera_q: Query<&mut Transform, (With<IsometricCamera>, Without<PlayerShip>)>,
 ) {
-    let Ok((player_tf, player_velocity)) = player_q.get_single() else {
+    let Ok((player_global_tf, player_velocity)) = player_q.get_single() else {
         return;
     };
 
@@ -110,17 +104,17 @@ fn follow_player_ship(
         return;
     };
 
-    let world_pos = Vec2::new(player_tf.translation.x, player_tf.translation.y);
+    let player_world_pos = Vec2::new(player_global_tf.translation().x, player_global_tf.translation().y);
     let lookahead = player_velocity
         .map(|velocity| velocity.linvel * config.lookahead_seconds)
         .unwrap_or(Vec2::ZERO);
 
-    let world_target = clamp_world(world_pos + lookahead, config.world_min, config.world_max);
-    let iso_target = world_to_isometric(world_target);
+    let world_target = clamp_world(player_world_pos + lookahead, config.world_min, config.world_max);
+
 
     let blend = 1.0 - (-config.smoothing * time.delta_secs()).exp();
     let blended_xy =
-        Vec2::new(camera_tf.translation.x, camera_tf.translation.y).lerp(iso_target, blend);
+        Vec2::new(camera_tf.translation.x, camera_tf.translation.y).lerp(world_target, blend);
 
     camera_tf.translation.x = blended_xy.x;
     camera_tf.translation.y = blended_xy.y;
@@ -137,12 +131,6 @@ mod tests {
     fn approx_eq(left: Vec2, right: Vec2) {
         assert!((left.x - right.x).abs() < 1e-5);
         assert!((left.y - right.y).abs() < 1e-5);
-    }
-
-    #[test]
-    fn converts_world_to_2_to_1_isometric() {
-        let iso = world_to_isometric(Vec2::new(10.0, 4.0));
-        approx_eq(iso, Vec2::new(8.0, 12.0));
     }
 
     #[test]

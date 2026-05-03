@@ -6,7 +6,7 @@ use tf_core::sailing::wind::Beaufort;
 use tf_simulation::ship::{PlayerShip, ShipVelocity};
 use tf_simulation::WindFieldResource;
 
-use crate::camera::{HUD_RENDER_LAYER, IsometricCamera};
+use crate::camera::HUD_RENDER_LAYER;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 struct HudRoot;
@@ -31,7 +31,6 @@ impl Plugin for HudPlugin {
         app.add_systems(Startup, setup_hud).add_systems(
             Update,
             (
-                anchor_hud_to_camera,
                 update_wind_hud,
                 update_point_of_sail_indicator,
             ),
@@ -119,23 +118,6 @@ fn spawn_point_of_sail_arc(parent: &mut ChildBuilder) {
             PointOfSailSegment { zone },
         ));
     }
-}
-
-fn anchor_hud_to_camera(
-    camera_q: Query<&Transform, (With<IsometricCamera>, Without<HudRoot>)>,
-    mut hud_q: Query<&mut Transform, (With<HudRoot>, Without<Camera>)>,
-) {
-    let Ok(camera_tf) = camera_q.get_single() else {
-        return;
-    };
-
-    let Ok(mut hud_tf) = hud_q.get_single_mut() else {
-        return;
-    };
-
-    // Tweak offsets for better alignment (move closer to top left, less extreme)
-    hud_tf.translation.x = camera_tf.translation.x - 350.0;
-    hud_tf.translation.y = camera_tf.translation.y + 180.0;
 }
 
 fn update_wind_hud(

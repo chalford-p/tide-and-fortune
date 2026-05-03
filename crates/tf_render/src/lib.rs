@@ -6,7 +6,7 @@ pub mod world;
 
 use bevy::prelude::*;
 
-pub use camera::{CameraFollowConfig, IsometricCamera};
+pub use camera::IsometricCamera;
 pub use world::{IsometricRoot, WorldRenderConfig, YSort};
 
 /// Main render plugin for M1 world and HUD placeholders.

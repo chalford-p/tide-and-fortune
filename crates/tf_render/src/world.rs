@@ -114,7 +114,7 @@ fn attach_player_ship_to_isometric_root(
     mut commands: Commands,
     root_q: Query<Entity, With<IsometricRoot>>,
     mut ship_q: Query<
-        (Entity, &mut Sprite),
+        (Entity, &Transform, &mut Sprite),
         (
             With<PlayerShip>,
             Without<IsometricRoot>,
@@ -127,12 +127,17 @@ fn attach_player_ship_to_isometric_root(
         return;
     };
 
-    for (entity, mut sprite) in &mut ship_q {
-        // Set the ship's local transform to z=10 to ensure it's above ocean tiles
+    for (entity, ship_tf, mut sprite) in &mut ship_q {
+        // Capture the ship's current world position before reparenting
+        let world_pos = ship_tf.translation;
+        
+        // Add ship as child of root
         commands.entity(root).add_child(entity);
         commands.entity(entity).insert((YSort, ShipRotationFrame::default()));
-        // Set z-order high
-        let transform = Transform::from_xyz(0.0, 0.0, 10.0);
+        
+        // Set the ship's local transform to preserve its world position
+        // Since parent (IsometricRoot) is at origin with identity, local = global
+        let transform = Transform::from_xyz(world_pos.x, world_pos.y, 10.0);
         commands.entity(entity).insert(transform);
 
         sprite.color = Color::srgb(0.95, 0.72, 0.19);
