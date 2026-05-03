@@ -1,5 +1,8 @@
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use tf_simulation::ship::PlayerShip;
+
+use crate::camera::WORLD_RENDER_LAYER;
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct IsometricRotationRoot;
@@ -10,14 +13,13 @@ pub struct IsometricRoot;
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct YSort;
 
-#[derive(Component, Debug, Clone, Copy)]
-struct OceanTile {
-    phase: f32,
-}
-
 #[derive(Component, Debug, Clone, Copy, Default)]
-struct ShipRotationFrame {
-    index: u8,
+struct PlayerShipMesh;
+
+#[derive(Resource, Debug, Clone)]
+struct OceanMaterialHandles {
+    even: Handle<StandardMaterial>,
+    odd: Handle<StandardMaterial>,
 }
 
 /// World-space settings for the placeholder M1 render scene.
@@ -47,133 +49,137 @@ impl Plugin for WorldPlugin {
             .add_systems(
                 Update,
                 (
-                    attach_player_ship_to_isometric_root,
+                    attach_player_ship_visual,
                     animate_ocean_tiles,
-                    y_sort_world_entities,
-                    update_ship_sprite_frame,
                 ),
             );
     }
 }
 
-fn setup_world(mut commands: Commands, config: Res<WorldRenderConfig>) {
+fn setup_world(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    config: Res<WorldRenderConfig>,
+) {
     let world_root = commands
         .spawn((
-            // Transform::from_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_4)),
             Transform::default(),
             Visibility::default(),
             IsometricRoot,
         ))
         .id();
 
-    // let isometric_root = commands.entity(world_root).with_child((
-    //     // Transform::from_scale(Vec3::new(std::f32::consts::SQRT_2, std::f32::consts::SQRT_2 * 0.5, 1.0)),
-    //     Visibility::default(),
-    //     IsometricRoot,
-    // ))
-    // .id();
-
     let width = config.world_max.x - config.world_min.x;
     let height = config.world_max.y - config.world_min.y;
     let cols = (width / config.tile_size).ceil() as i32;
     let rows = (height / config.tile_size).ceil() as i32;
+    let ocean_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(config.tile_size * 0.5)).mesh());
+    let ocean_material_even = materials.add(StandardMaterial {
+        base_color: ocean_tile_color(0.0, 0.0),
+        perceptual_roughness: 1.0,
+        metallic: 0.0,
+        unlit: true,
+        ..default()
+    });
+    let ocean_material_odd = materials.add(StandardMaterial {
+        base_color: ocean_tile_color(0.5, 0.0),
+        perceptual_roughness: 1.0,
+        metallic: 0.0,
+        unlit: true,
+        ..default()
+    });
+    let island_mesh = meshes.add(Cuboid::new(620.0, 500.0, 24.0));
+    let island_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.23, 0.50, 0.22),
+        perceptual_roughness: 1.0,
+        metallic: 0.0,
+        unlit: true,
+        ..default()
+    });
+    commands.insert_resource(OceanMaterialHandles {
+        even: ocean_material_even.clone(),
+        odd: ocean_material_odd.clone(),
+    });
 
     commands.entity(world_root).with_children(|parent| {
         for y in 0..rows {
             for x in 0..cols {
                 let world_x = config.world_min.x + x as f32 * config.tile_size + config.tile_size * 0.5;
                 let world_y = config.world_min.y + y as f32 * config.tile_size + config.tile_size * 0.5;
-                let phase = ((x + y) as f32 * 0.37).fract();
+                let material = if (x + y) % 2 == 0 {
+                    ocean_material_even.clone()
+                } else {
+                    ocean_material_odd.clone()
+                };
 
                 parent.spawn((
-                    Sprite {
-                        color: Color::srgb(0.11, 0.38, 0.70),
-                        custom_size: Some(Vec2::splat(config.tile_size)),
-                        ..default()
-                        },
-                    Transform::from_xyz(world_x, world_y, 0.0),
-                    OceanTile { phase },
-                    YSort,
+                    Mesh3d(ocean_mesh.clone()),
+                    MeshMaterial3d(material),
+                    Transform::from_xyz(world_x, world_y, -0.5),
+                    RenderLayers::layer(WORLD_RENDER_LAYER),
                 ));
             }
         }
 
         parent.spawn((
-            Sprite {
-                    color: Color::srgb(0.23, 0.50, 0.22),
-                    custom_size: Some(Vec2::new(620.0, 500.0)),
-                    ..default()
-                },
-            Transform::from_xyz(6_400.0, 3_100.0, 0.0),
-            YSort,
+            Mesh3d(island_mesh),
+            MeshMaterial3d(island_material),
+            Transform::from_xyz(6_400.0, 3_100.0, 12.0),
+            RenderLayers::layer(WORLD_RENDER_LAYER),
         ));
     });
 }
 
-fn attach_player_ship_to_isometric_root(
+fn attach_player_ship_visual(
     mut commands: Commands,
-    root_q: Query<Entity, With<IsometricRoot>>,
-    mut ship_q: Query<
-        (Entity, &Transform, &mut Sprite),
-        (
-            With<PlayerShip>,
-            Without<IsometricRoot>,
-            Without<Parent>,
-            Without<ShipRotationFrame>,
-        ),
-    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    ship_q: Query<Entity, (With<PlayerShip>, Added<PlayerShip>)>,
 ) {
-    let Ok(root) = root_q.get_single() else {
-        return;
-    };
+    let base_triangle = Triangle2d::new(Vec2::new(-27.0, -15.0), Vec2::new(27.0, 0.0), Vec2::new(-27.0, 15.0));
 
-    for (entity, ship_tf, mut sprite) in &mut ship_q {
-        // Capture the ship's current world position before reparenting
-        let world_pos = ship_tf.translation;
-        
-        // Add ship as child of root
-        commands.entity(root).add_child(entity);
-        commands.entity(entity).insert((YSort, ShipRotationFrame::default()));
-        
-        // Set the ship's local transform to preserve its world position
-        // Since parent (IsometricRoot) is at origin with identity, local = global
-        let transform = Transform::from_xyz(world_pos.x, world_pos.y, 10.0);
-        commands.entity(entity).insert(transform);
+    let ship_mesh = meshes.add(Extrusion::new(base_triangle, 10.0));
 
-        sprite.color = Color::srgb(0.95, 0.72, 0.19);
-        sprite.custom_size = Some(Vec2::new(54.0, 30.0));
+    for entity in &ship_q {
+        let ship_material = materials.add(StandardMaterial {
+            base_color: Color::srgb(0.95, 0.72, 0.19),
+            perceptual_roughness: 0.9,
+            metallic: 0.0,
+            unlit: true,
+            ..default()
+        });
+
+        commands.entity(entity).insert((
+            PlayerShipMesh,
+            Mesh3d(ship_mesh.clone()),
+            MeshMaterial3d(ship_material),
+            Transform::from_xyz(0.0, 0.0, 6.0),
+            RenderLayers::layer(WORLD_RENDER_LAYER),
+        ));
     }
 }
 
-fn animate_ocean_tiles(time: Res<Time>, mut tiles: Query<(&OceanTile, &mut Sprite)>) {
+fn animate_ocean_tiles(
+    time: Res<Time>,
+    ocean_materials: Res<OceanMaterialHandles>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let t = time.elapsed_secs();
 
-    for (tile, mut sprite) in &mut tiles {
-        let wobble = (t * 0.75 + tile.phase * std::f32::consts::TAU).sin() * 0.08;
-        let lightness = (0.42 + wobble).clamp(0.2, 0.9);
-        sprite.color = Color::hsl(202.0 + wobble * 25.0, 0.62, lightness);
+    if let Some(material) = materials.get_mut(&ocean_materials.even) {
+        material.base_color = ocean_tile_color(0.0, t);
+    }
+
+    if let Some(material) = materials.get_mut(&ocean_materials.odd) {
+        material.base_color = ocean_tile_color(0.5, t);
     }
 }
 
-fn y_sort_world_entities(mut renderables: Query<&mut Transform, (With<YSort>, Without<IsometricRoot>)>) {
-    for mut transform in &mut renderables {
-        transform.translation.z = -transform.translation.y * 0.001;
-    }
-}
-
-fn update_ship_sprite_frame(
-    mut ships: Query<(&Transform, &mut ShipRotationFrame), With<PlayerShip>>,
-) {
-    for (transform, mut frame) in &mut ships {
-        let (_, _, heading) = transform.rotation.to_euler(EulerRot::XYZ);
-        frame.index = heading_to_frame_index(heading);
-    }
-}
-
-fn heading_to_frame_index(heading: f32) -> u8 {
-    let wrapped = heading.rem_euclid(std::f32::consts::TAU);
-    let frame_index = ((wrapped / std::f32::consts::TAU) * 16.0).round() as i32 % 16;
-    frame_index as u8
+fn ocean_tile_color(phase: f32, time: f32) -> Color {
+    let wobble = (time * 0.75 + phase * std::f32::consts::TAU).sin() * 0.08;
+    let lightness = (0.42 + wobble).clamp(0.2, 0.9);
+    Color::hsl(202.0 + wobble * 25.0, 0.62, lightness)
 }
 
 #[cfg(test)]
@@ -181,13 +187,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frame_index_stays_in_16_frame_range() {
-        let frame_index = heading_to_frame_index(std::f32::consts::TAU * 0.95);
-        assert!((0..16).contains(&i32::from(frame_index)));
-    }
-
-    #[test]
-    fn frame_index_wraps_negative_headings() {
-        assert_eq!(heading_to_frame_index(-std::f32::consts::FRAC_PI_2), 12);
+    fn ocean_tile_color_stays_visible() {
+        let color = ocean_tile_color(0.37, 2.0).to_srgba();
+        assert!(color.red > 0.0);
+        assert!(color.green > 0.0);
+        assert!(color.blue > 0.0);
     }
 }
