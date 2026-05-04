@@ -18,6 +18,40 @@ pub enum PointOfSail {
 }
 
 impl PointOfSail {
+    pub const ORDERED: [PointOfSail; 6] = [
+        PointOfSail::InIrons,
+        PointOfSail::CloseHauled,
+        PointOfSail::CloseReach,
+        PointOfSail::BeamReach,
+        PointOfSail::BroadReach,
+        PointOfSail::Running,
+    ];
+
+    /// Inclusive lower, exclusive upper angle range in degrees.
+    /// Running is treated as inclusive on the upper bound in classification.
+    pub fn angle_range_deg(&self) -> (f32, f32) {
+        match self {
+            PointOfSail::InIrons => (0.0, 30.0),
+            PointOfSail::CloseHauled => (30.0, 60.0),
+            PointOfSail::CloseReach => (60.0, 80.0),
+            PointOfSail::BeamReach => (80.0, 100.0),
+            PointOfSail::BroadReach => (100.0, 150.0),
+            PointOfSail::Running => (150.0, 180.0),
+        }
+    }
+
+    pub fn from_angle_deg(angle_deg: f32) -> PointOfSail {
+        for zone in Self::ORDERED {
+            let (start, end) = zone.angle_range_deg();
+            let is_running_upper = zone == PointOfSail::Running && angle_deg <= end;
+            if angle_deg >= start && (angle_deg < end || is_running_upper) {
+                return zone;
+            }
+        }
+
+        PointOfSail::Running
+    }
+
     /// Given apparent wind vector and ship forward vector,
     /// return current point of sail and angle in degrees.
     ///
@@ -33,20 +67,7 @@ impl PointOfSail {
         let angle_rad = cos_angle.acos();
         let angle_deg = angle_rad.to_degrees();
 
-        // Classify by angle
-        let point_of_sail = if angle_deg < 30.0 {
-            PointOfSail::InIrons
-        } else if angle_deg < 60.0 {
-            PointOfSail::CloseHauled
-        } else if angle_deg < 80.0 {
-            PointOfSail::CloseReach
-        } else if angle_deg < 100.0 {
-            PointOfSail::BeamReach
-        } else if angle_deg < 150.0 {
-            PointOfSail::BroadReach
-        } else {
-            PointOfSail::Running
-        };
+        let point_of_sail = PointOfSail::from_angle_deg(angle_deg);
 
         (point_of_sail, angle_deg)
     }

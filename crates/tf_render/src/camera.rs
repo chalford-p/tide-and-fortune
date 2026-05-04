@@ -7,7 +7,7 @@ use tf_simulation::ship::{PlayerShip, ShipVelocity};
 pub const WORLD_RENDER_LAYER: usize = 0;
 pub const HUD_RENDER_LAYER: usize = 1;
 
-const ISOMETRIC_YAW: f32 = -std::f32::consts::FRAC_PI_4;
+pub const ISOMETRIC_YAW: f32 = -std::f32::consts::FRAC_PI_4;
 const ISOMETRIC_PITCH: f32 = 0.615_479_7;
 const CAMERA_DISTANCE: f32 = 6_000.0;
 

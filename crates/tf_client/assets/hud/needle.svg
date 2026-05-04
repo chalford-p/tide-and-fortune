@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Shaft: runs from x=8 to x=38, centred vertically at y=32 -->
+  <rect x="8" y="29" width="30" height="6" rx="2" fill="white"/>
+  <!-- Arrowhead: pointing right, tip at x=56 -->
+  <polygon points="38,20 56,32 38,44" fill="white"/>
+</svg>
