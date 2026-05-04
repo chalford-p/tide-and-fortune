@@ -113,6 +113,13 @@ pub struct ShipVelocity {
     pub angvel: f32,
 }
 
+/// Last-frame propulsion values, updated by the sailing physics system.
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct ShipForces {
+    pub drive_force: f32,
+    pub drive_accel: Vec2,
+}
+
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct PlayerShip;
 
@@ -123,6 +130,7 @@ pub struct ShipBundle {
     pub rudder: Rudder,
     pub sail_state: SailState,
     pub velocity: ShipVelocity,
+    pub forces: ShipForces,
     pub player_ship: PlayerShip,
     pub transform: Transform,
     pub sprite: Sprite,
@@ -142,6 +150,7 @@ impl Default for ShipBundle {
             rudder: Rudder::default(),
             sail_state: SailState::with_all_sails(SailAssistTier::Tier1),
             velocity: ShipVelocity::default(),
+            forces: ShipForces::default(),
             player_ship: PlayerShip,
             transform: Transform::default(),
             sprite: Sprite::default(),

@@ -281,8 +281,9 @@ fn update_wind_hud(
     };
 
     let sample_pos = CoreVec2::new(ship_tf.translation.x, ship_tf.translation.y);
+    let linvel = velocity.map(|v| v.linvel).unwrap_or(CoreVec2::ZERO);
     let true_wind = wind_field.field.at(sample_pos);
-    let apparent_wind = true_wind - velocity.map(|v| v.linvel).unwrap_or(CoreVec2::ZERO);
+    let apparent_wind = wind_field.field.apparent_wind_at(sample_pos, linvel);
 
     let apparent_angle = apparent_wind.y.atan2(apparent_wind.x) - ISOMETRIC_YAW;
     let true_angle = true_wind.y.atan2(true_wind.x) - ISOMETRIC_YAW;
@@ -325,8 +326,10 @@ fn update_point_of_sail_indicator(
     };
 
     let sample_pos = CoreVec2::new(ship_tf.translation.x, ship_tf.translation.y);
-    let true_wind = wind_field.field.at(sample_pos);
-    let apparent_wind = true_wind - velocity.map(|v| v.linvel).unwrap_or(CoreVec2::ZERO);
+    let apparent_wind = wind_field.field.apparent_wind_at(
+        sample_pos,
+        velocity.map(|v| v.linvel).unwrap_or(CoreVec2::ZERO),
+    );
 
     if apparent_wind.length_squared() <= f32::EPSILON {
         return;

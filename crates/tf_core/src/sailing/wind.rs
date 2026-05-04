@@ -112,6 +112,12 @@ impl WindField {
         (self.nx, self.ny)
     }
 
+    /// Returns the apparent wind at `pos` for a vessel moving with `ship_velocity`.
+    /// Apparent wind = true wind − ship velocity.
+    pub fn apparent_wind_at(&self, pos: Vec2, ship_velocity: Vec2) -> Vec2 {
+        self.at(pos) - ship_velocity
+    }
+
     pub fn at(&self, pos: Vec2) -> Vec2 {
         let clamped = pos.clamp(self.config.world_min, self.config.world_max);
         let rel = clamped - self.config.world_min;

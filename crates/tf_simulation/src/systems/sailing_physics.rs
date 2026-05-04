@@ -5,7 +5,7 @@ use bevy_transform::components::Transform;
 use glam::Vec2;
 use tf_core::sailing::points_of_sail::PointOfSail;
 
-use crate::ship::{Helm, SailAssistTier, SailState, Ship, ShipVelocity};
+use crate::ship::{Helm, SailAssistTier, SailState, Ship, ShipForces, ShipVelocity};
 use crate::{GameMode, WindFieldResource};
 
 /// Scale factor mapping (rudder_angle / displacement_tonnes) → angular_velocity (rad/s).
@@ -22,7 +22,7 @@ pub fn sailing_physics_system(
     time: Res<Time>,
     mode: Res<GameMode>,
     wind_field: Res<WindFieldResource>,
-    mut ships: Query<(&Ship, &Helm, &SailState, &mut ShipVelocity, &mut Transform)>,
+    mut ships: Query<(&Ship, &Helm, &SailState, &mut ShipVelocity, &mut ShipForces, &mut Transform)>,
 ) {
     if *mode != GameMode::Sailing {
         return;
@@ -33,7 +33,7 @@ pub fn sailing_physics_system(
         return;
     }
 
-    for (ship, helm, sail_state, mut velocity, mut transform) in &mut ships {
+    for (ship, helm, sail_state, mut velocity, mut forces, mut transform) in &mut ships {
         let heading = transform.rotation.to_euler(EulerRot::XYZ).2;
         let ship_forward_bevy = transform.rotation * Vec3::X;
         let mut ship_forward = Vec2::new(ship_forward_bevy.x, ship_forward_bevy.y);
@@ -44,9 +44,7 @@ pub fn sailing_physics_system(
         }
 
         let ship_position = Vec2::new(transform.translation.x, transform.translation.y);
-        let true_wind = wind_field.field.at(ship_position);
-
-        let apparent_wind = true_wind - velocity.linvel;
+        let apparent_wind = wind_field.field.apparent_wind_at(ship_position, velocity.linvel);
         if apparent_wind.length_squared() < f32::EPSILON {
             transform.translation.x += velocity.linvel.x * dt;
             transform.translation.y += velocity.linvel.y * dt;
@@ -65,6 +63,8 @@ pub fn sailing_physics_system(
 
         // Integrate velocity with simple Euler integration.
         let drive_accel = ship_forward * (drive_force / ship.displacement_tonnes.max(1.0));
+        forces.drive_force = drive_force;
+        forces.drive_accel = drive_accel;
         velocity.linvel += (drive_accel + leeway_accel) * dt;
 
         // Turn rate is proportional to rudder angle and inversely proportional to mass.
