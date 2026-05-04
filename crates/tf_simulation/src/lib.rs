@@ -29,6 +29,7 @@ impl WindFieldResource {
 pub struct DebugControlsState {
 	pub enabled: bool,
 	pub zero_wind_enabled: bool,
+	pub plus_x_wind_enabled: bool,
 	console_lines: VecDeque<String>,
 	max_console_lines: usize,
 }
@@ -38,6 +39,7 @@ impl Default for DebugControlsState {
 		let mut state = Self {
 			enabled: false,
 			zero_wind_enabled: false,
+			plus_x_wind_enabled: false,
 			console_lines: VecDeque::new(),
 			max_console_lines: 64,
 		};

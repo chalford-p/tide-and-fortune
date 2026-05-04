@@ -78,7 +78,9 @@ fn update_wind_field_system(
 	debug_state: Res<DebugControlsState>,
 	mut wind: ResMut<WindFieldResource>,
 ) {
-	if debug_state.zero_wind_enabled {
+	if debug_state.plus_x_wind_enabled {
+		wind.field.set_constant(CoreVec2::X);
+	} else if debug_state.zero_wind_enabled {
 		wind.field.set_constant(CoreVec2::ZERO);
 	} else {
 		wind.field.update(time.elapsed_secs());

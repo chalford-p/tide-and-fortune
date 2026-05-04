@@ -153,9 +153,22 @@ fn toggle_debug_mode_input(
     if keyboard.just_pressed(KeyCode::BracketRight) {
         debug_state.zero_wind_enabled = !debug_state.zero_wind_enabled;
         if debug_state.zero_wind_enabled {
+            debug_state.plus_x_wind_enabled = false;
+        }
+        if debug_state.zero_wind_enabled {
             debug_state.push_console_line("] pressed: zero wind field enabled (0.0, 0.0)");
         } else {
             debug_state.push_console_line("] pressed: zero wind field disabled");
+        }
+    }
+
+    if keyboard.just_pressed(KeyCode::BracketLeft) {
+        debug_state.plus_x_wind_enabled = !debug_state.plus_x_wind_enabled;
+        if debug_state.plus_x_wind_enabled {
+            debug_state.zero_wind_enabled = false;
+            debug_state.push_console_line("[ pressed: +x wind field enabled (1.0, 0.0)");
+        } else {
+            debug_state.push_console_line("[ pressed: +x wind field disabled");
         }
     }
 }
@@ -205,9 +218,10 @@ fn update_debug_ui(
     };
 
     key_help_text.0 = format!(
-        "Shift+C  | Toggle debug overlay       [{}]\n]        | Toggle wind to zero [{}]",
+        "Shift+C  | Toggle debug overlay       [{}]\n]        | Toggle wind to zero       [{}]\n[        | Toggle wind to +x         [{}]",
         on_off(debug_state.enabled),
-        on_off(debug_state.zero_wind_enabled)
+        on_off(debug_state.zero_wind_enabled),
+        on_off(debug_state.plus_x_wind_enabled)
     );
 }
 
