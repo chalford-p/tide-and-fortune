@@ -1,25 +1,40 @@
 //! Crate: tf_client — Game client binary entrypoint.
 
+mod log_capture;
+
 use bevy::prelude::*;
+use bevy::log::LogPlugin;
 use glam::Vec2 as CoreVec2;
 use tf_core::sailing::wind::{WindField, WindFieldConfig};
 use tf_render::TideAndFortuneRenderPlugin;
 use tf_simulation::ship::{PlayerShip, ShipBundle, ShipForces, ShipVelocity};
 use tf_simulation::systems::player_input::player_input_system;
 use tf_simulation::systems::sailing_physics::sailing_physics_system;
-use tf_simulation::{GameMode, WindFieldResource};
+use tf_simulation::{DebugControlsState, GameMode, WindFieldResource};
+use crate::log_capture::LogCaptureReceiver;
 
 fn main() {
+	let log_capture_receiver = log_capture::init_log_capture_receiver();
+
 	App::new()
-		.add_plugins(DefaultPlugins.set(WindowPlugin {
-			primary_window: Some(Window {
-				title: "Tide and Fortune".to_string(),
-				resolution: (1280.0, 720.0).into(),
-				..default()
-			}),
-			..default()
-		}))
+		.add_plugins(
+			DefaultPlugins
+				.set(LogPlugin {
+					custom_layer: log_capture::make_in_game_console_layer,
+					..default()
+				})
+				.set(WindowPlugin {
+					primary_window: Some(Window {
+						title: "Tide and Fortune".to_string(),
+						resolution: (1280.0, 720.0).into(),
+						..default()
+					}),
+					..default()
+				}),
+		)
+		.insert_resource(log_capture_receiver)
 		.insert_resource(GameMode::Sailing)
+		.insert_resource(DebugControlsState::default())
 		.insert_resource(WindFieldResource::new(WindField::new(WindFieldConfig {
 			world_min: glam::Vec2::ZERO,
 			world_max: glam::Vec2::splat(10_000.0),
@@ -33,6 +48,7 @@ fn main() {
 		.add_systems(
 			Update,
 			(
+				drain_captured_logs_system,
 				update_wind_field_system,
 				player_input_system,
 				sailing_physics_system.after(player_input_system),
@@ -42,14 +58,31 @@ fn main() {
 		.run();
 }
 
+fn drain_captured_logs_system(
+	log_capture_receiver: Res<LogCaptureReceiver>,
+	mut debug_state: ResMut<DebugControlsState>,
+) {
+	for line in log_capture_receiver.try_drain() {
+		debug_state.push_console_line(line);
+	}
+}
+
 fn spawn_player_ship(mut commands: Commands) {
 	let mut ship = ShipBundle::default();
 	ship.transform.translation = Vec3::new(5_000.0, 5_000.0, 0.0);
 	commands.spawn(ship);
 }
 
-fn update_wind_field_system(time: Res<Time>, mut wind: ResMut<WindFieldResource>) {
-	wind.field.update(time.elapsed_secs());
+fn update_wind_field_system(
+	time: Res<Time>,
+	debug_state: Res<DebugControlsState>,
+	mut wind: ResMut<WindFieldResource>,
+) {
+	if debug_state.zero_wind_enabled {
+		wind.field.set_constant(CoreVec2::ZERO);
+	} else {
+		wind.field.update(time.elapsed_secs());
+	}
 }
 
 fn log_player_state_system(

@@ -187,6 +187,12 @@ impl WindField {
         }
     }
 
+    pub fn set_constant(&mut self, wind: Vec2) {
+        for cell in &mut self.cells {
+            *cell = wind;
+        }
+    }
+
     pub fn average_magnitude(&self) -> f32 {
         let sum: f32 = self.cells.iter().map(|v| v.length()).sum();
         sum / self.cells.len() as f32

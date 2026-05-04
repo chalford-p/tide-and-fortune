@@ -1,6 +1,7 @@
 //! Crate: tf_render — Rendering engine and graphics abstraction.
 
 pub mod camera;
+pub mod debug_ui;
 pub mod hud;
 pub mod world;
 
@@ -17,6 +18,7 @@ impl Plugin for TideAndFortuneRenderPlugin {
 		app.add_plugins((
 			camera::CameraPlugin,
 			world::WorldPlugin,
+			debug_ui::DebugUiPlugin,
 			hud::HudPlugin,
 		));
 	}
